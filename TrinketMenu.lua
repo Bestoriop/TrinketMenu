@@ -317,6 +317,50 @@ function TrinketMenu.FindItem(name,includeInventory)
 	end
 end
 
+-- nombre d'exemplaires de name (trinkets portés + sacs)
+function TrinketMenu.CountItem(name)
+	local count = 0
+	for i=13,14 do
+		if string.find(GetInventoryItemLink("player",i) or "",name,1,1) then
+			count = count + 1
+		end
+	end
+	for i=0,4 do
+		for j=1,GetContainerNumSlots(i) do
+			if string.find(GetContainerItemLink(i,j) or "",name,1,1) then
+				count = count + 1
+			end
+		end
+	end
+	return count
+end
+
+-- renvoie bag,slot d'un exemplaire de name en sac, non verrouillé.
+-- Préfère un exemplaire prêt (cooldown <= 30s). Si readyOnly, ne renvoie que ceux-là.
+function TrinketMenu.FindBagItem(name,readyOnly)
+	local fallbackBag,fallbackSlot
+	for i=0,4 do
+		for j=1,GetContainerNumSlots(i) do
+			if string.find(GetContainerItemLink(i,j) or "",name,1,1) then
+				local _,_,isLocked = GetContainerItemInfo(i,j)
+				if not isLocked then
+					local start,duration = GetContainerItemCooldown(i,j)
+					if start==0 or duration-(GetTime()-start)<=30 then
+						return i,j
+					end
+					if not fallbackBag then
+						fallbackBag,fallbackSlot = i,j
+					end
+				end
+			end
+		end
+	end
+	if not readyOnly then
+		return fallbackBag,fallbackSlot
+	end
+end
+
+
 --[[ Frame Scripts ]]--
 
 function TrinketMenu.OnLoad()
@@ -910,14 +954,15 @@ function TrinketMenu.EquipTrinketByName(name,slot)
 		local which = slot-13 -- 0 or 1
 		if queue[which]==name and not imperative then
 			queue[which] = nil
-		elseif queue[1-which]==name then
+		elseif queue[1-which]==name and TrinketMenu.CountItem(name)<2 then
+			-- on ne "déplace" le trinket vers l'autre slot que s'il n'en existe qu'un exemplaire
 			queue[1-which] = nil
 			queue[which] = name
 		else
 			queue[which] = name
 		end
 	elseif not CursorHasItem() and not SpellIsTargeting() then
-		local _,b,s = TrinketMenu.FindItem(name)
+		local b,s = TrinketMenu.FindBagItem(name)
 		if b then
 			local _,_,isLocked = GetContainerItemInfo(b,s)
 			if not isLocked and not IsInventoryItemLocked(slot) then
@@ -930,7 +975,7 @@ function TrinketMenu.EquipTrinketByName(name,slot)
 		end
 	end
 	TrinketMenu.UpdateCombatQueue()
-end	
+end
 
 function TrinketMenu.UpdateCombatQueue()
 	local bag,slot
@@ -1103,3 +1148,4 @@ function TrinketMenu.ReflectKeyBindings()
 		TrinketMenu_Trinket1HotKey:SetText("")
 	end
 end
+
