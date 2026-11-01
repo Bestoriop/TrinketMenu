@@ -323,11 +323,9 @@ end
 
 -- which = 0 or 1, decides if a trinket should be equipped and equips if so
 function TrinketMenu.ProcessAutoQueue(which)
-
 	local start,duration,enable = GetInventoryItemCooldown("player",13+which)
 	local _,_,id,name = string.find(GetInventoryItemLink("player",13+which) or "","item:(%d+).+%[(.+)%]")
-	local icon = getglobal("TrinketMenu_Trinket"..which.."Queue") 
-
+	local icon = getglobal("TrinketMenu_Trinket"..which.."Queue")
 	if not id then return end -- leave if no trinket equipped
 	if IsInventoryItemLocked(13+which) then return end -- leave if slot being swapped
 	if TrinketMenu.PausedQueue[which] then
@@ -348,11 +346,8 @@ function TrinketMenu.ProcessAutoQueue(which)
 			end
 		end
 	end
-
 	icon:SetDesaturated(0) -- normal queue operation, reflect that in queue inset
 	icon:SetVertexColor(1,1,1)
-
---	local name = TrinketMenu.GetNameByID(id)
 	local ready = TrinketMenu.TrinketNearReady(13+which)
 	if ready and TrinketMenu.CombatQueue[which] then
 		TrinketMenu.CombatQueue[which] = nil
@@ -364,22 +359,16 @@ function TrinketMenu.ProcessAutoQueue(which)
 		if ready and list[i]==id then rank=i break end
 	end
 	if rank then
-		local bag,slot
 		for i=1,rank do
+			if ready and list[i]==id then break end -- c'est le trinket déjà équipé et il est prêt : rien de mieux à mettre
 			if not ready or enable==0 or (TrinketMenuQueue.Stats[list[i]] and TrinketMenuQueue.Stats[list[i]].priority) then
 				name = GetItemInfo(list[i]) or ""
-				if TrinketMenu.WatchItem[name] then
-					bag,slot = TrinketMenu.WatchItem[name].bag,TrinketMenu.WatchItem[name].slot
-					if bag then
-						if string.find(GetContainerItemLink(bag,slot) or "",name,1,1) then
-							if TrinketMenu.TrinketNearReady(bag,slot) then
-								if TrinketMenu.CombatQueue[which]~=name then
-									TrinketMenu.EquipTrinketByName(name,13+which)
-								end
-								break
-							end
-						end
+				-- cherche directement en sac un exemplaire prêt (au lieu de WatchItem, qui ne retient qu'un exemplaire par nom)
+				if name~="" and TrinketMenu.FindBagItem(name,1) then
+					if TrinketMenu.CombatQueue[which]~=name then
+						TrinketMenu.EquipTrinketByName(name,13+which)
 					end
+					break
 				end
 			end
 		end
